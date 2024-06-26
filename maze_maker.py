@@ -1,6 +1,6 @@
 import numpy as np
 
-class maze_maker:
+class MazeMaker:
     """
         wall_c는 up, down, left, right 순서
     """
@@ -108,7 +108,7 @@ class maze_maker:
 
     
 print()
-mazer = maze_maker()
+mazer = MazeMaker()
 w, h, wall_c = mazer.generate(10, 10)
 
 print(wall_c)
