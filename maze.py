@@ -74,8 +74,8 @@ class MazeEnv(gym.Env):
         # RETURNS
         observation = self._get_obs()
         
-        #if self.render_mode == "human":
-        #    self._render_frame()
+        if self.render_mode == "human":
+            self._render_frame()
 
         return observation
         
@@ -121,59 +121,136 @@ class MazeEnv(gym.Env):
         return wall_c
 
 
+    def maze_c2w(self, wall_c):     # from (default) cell type to wall type
+        height, width, _ = wall_c.shape
+        wall_h = np.ones((height + 1, width), dtype=bool)
+        wall_v = np.ones((height, width + 1), dtype=bool)
+        
+        for i, line in enumerate(wall_c):
+            for j, walls in enumerate(line):
+                if not walls[0]:            # 0: Up
+                    wall_h[i][j] = False
+                if not walls[2]:            # 2: Left
+                    wall_v[i][j] = False
+                # Edge Conditions
+                if i == height - 1 and not walls[1]:        # 1: Down
+                    wall_h[i + 1][j] = False
+                if j == width - 1 and not walls[3]:         # 3: Right
+                    wall_v[i][j + 1] = False
+
+        return wall_h, wall_v
+    
+
+    def step(self, action):
+        # action {0, 1, 2, 3}: {Up Down Left Right}
+        direction = self._action_to_direction[action]
+
+        self._agent_location = np.clip(
+            self._agent_location + direction, (0, 0), (self.maze_height - 1, self.maze_width - 1)
+        )
+
+        # End condition
+        terminated = np.array_equal(self._agent_location, self._target_location)
+        reward = 1 if terminated else 0
+        observation = self._get_obs()
+        info = None
+
+        if self.render_mode == "human":
+            self._render_frame()
+        
+        return observation, reward, terminated, False, info
+
+
     def render(self):
         if self.render_mode == "rgb_array":
             return self._render_frame()
         
 
     def _render_frame(self):
+        # Initialization in "human" mode
         if self.window is None and self.render_mode == "human":
-            pass
-"""
+            pygame.init()
+            pygame.display.init()
+            self.window = pygame.display.set_mode((self.window_size, self.window_size))
+        
+        if self.clock is None and self.render_mode == "human":
+            self.clock = pygame.time.Clock()
+        
+        # Generate a canvas
+        canvas = pygame.Surface((self.window_size, self.window_size))
+        canvas.fill((255, 255, 255))
+        pix_square_size = (self.window_size / max(self.height_range[1], self.width_range[1], 22))
 
-def render(wall_c, w=10, h=10, screen_w=720, screen_h=720):
-    pygame.init()
-    pygame.display.init()
-    screen = pygame.display.set_mode((screen_width, screen_height))
+        startx = (self.window_size - self.maze_width * pix_square_size)/2
+        starty = (self.window_size - self.maze_height * pix_square_size)/2
 
-    clock = pygame.time.Clock()
+        # Draw maze
+        wall_h, wall_v = self.maze_c2w(self.maze)
+        for y, row in enumerate(wall_h):
+            for x, wall in enumerate(row):
+                if wall:
+                    pygame.draw.line(
+                        canvas,
+                        0,
+                        (startx + pix_square_size * x, starty + pix_square_size * y),
+                        (startx + pix_square_size * (x + 1), starty + pix_square_size * y),
+                        width=3,
+                    )
 
-    canvas = pygame.Surface((screen_width, screen_height))
-    canvas.fill((255, 255, 255))
-    pix_square_size = screen_width/size
+        for y, row in enumerate(wall_v):
+            for x, wall in enumerate(row):
+                if wall:
+                    pygame.draw.line(
+                        canvas,
+                        0,
+                        (startx + pix_square_size * x, starty + pix_square_size * y),
+                        (startx + pix_square_size * x, starty + pix_square_size * (y + 1)),
+                        width=3,
+                    )
 
-    pygame.draw.rect(
-        canvas,
-        (255, 0, 0),
-        pygame.Rect(
-            (pix_square_size, pix_square_size), 
-            (pix_square_size, pix_square_size),
-        ),
-    )
+        # Draw objects
+        # agent
+        pygame.draw.circle(
+            canvas,
+            (0, 80, 255),
+            (startx + (self._agent_location[1] + 0.5) * pix_square_size, starty + (self._agent_location[0] + 0.5) * pix_square_size),
+            pix_square_size / 4,
+        )
 
-    pygame.draw.circle(
-        canvas,
-        (0, 0, 255),
-        ((3 + 0.5) * pix_square_size, (3 + 0.5) * pix_square_size), 
-        pix_square_size / 3
-    )
-    screen.blit(canvas, canvas.get_rect())
-    pygame.display.update()
-    pygame.time.delay(2000)
-    pygame.display.quit()
-    pygame.quit()
+        # target
+        pygame.draw.rect(
+            canvas,
+            (255, 80, 80),
+            pygame.Rect(
+                startx + self._target_location[1] * pix_square_size + pix_square_size*0.2,
+                starty + self._target_location[0] * pix_square_size + pix_square_size*0.2,
+                pix_square_size*0.6, 
+                pix_square_size*0.6
+            )
+        )
+
+        if self.render_mode == "human":
+            self.window.blit(canvas, canvas.get_rect())
+            #pygame.event.pump()
+            pygame.display.update()
+
+            self.clock.tick(self.metadata["render_fps"])
+        
+        else:
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+            )
+    
+    def close(self):
+        if self.window is not None:
+            pygame.display.quit()
+            pygame.quit()
 
 
-maze_maker = MazeMaker()
-w, h, wall_c = maze_maker.generate(10, 10)
-
-"""
-
-env = MazeEnv(height_range=[2, 5], width_range=[4, 5])
-
-Hs = np.zeros(12)
-Ws = np.zeros(12)
+env = MazeEnv(render_mode="human", height_range=[15, 20], width_range=[15, 20])
 
 for i in range(1):
-    env.reset()
-    
+    env.reset(nr_ratio=0.9)
+import time
+time.sleep(7)
+env.close()
