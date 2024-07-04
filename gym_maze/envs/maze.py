@@ -139,6 +139,46 @@ class MazeEnv(gym.Env):
         return wall_h, wall_v
     
 
+    def maze_w2c(self, wall_h, wall_v):
+        height, width = wall_h.shape
+        height -= 1
+        wall_c = np.ones((height, width, 4), dtype=bool)
+
+        # Carve Horizontal
+        for i, line in enumerate(wall_h[1:-1]):
+            for j, wall in enumerate(line):
+                if not wall:
+                    wall_c[i][j][1] = False             # 1: Down
+                    wall_c[i + 1][j][0] = False         # 0: Up
+                    # 0, -1번째 줄은 반복문에서 없으므로, 항상 (i + 1)th cell은 존재할 것.
+        
+        # Carve Vertical
+        for i, line in enumerate(wall_v):
+            for j, wall in enumerate(line[1:-1]):
+                if not wall:
+                    wall_c[i][j][3] = False             # 3: Right
+                    wall_c[i][j + 1][2] = False         # 2: Left
+
+        # Carve Edge Walls; 꼭 할 필요는 없지만, 혹시 확장하면서 버그가 생길지 모르니까 추가
+        for i, wall in enumerate(wall_h[0]):
+            if not wall: 
+                wall_c[0][i][0] = False                 # 0: Up
+        for i, wall in enumerate(wall_h[-1]):
+            if not wall:
+                wall_c[-1][i][1] = False                # 1: Down
+        for i, wall in enumerate(wall_v[:, 0]):
+            if not wall: 
+                wall_c[i][0][2] = False                 # 2: Left
+        for i, wall in enumerate(wall_v[:, -1]):
+            if not wall: 
+                wall_c[i][-1][3] = False                # 3: Right
+
+        return width, height, wall_c
+
+
+
+
+
     def step(self, action):
         # action {0, 1, 2, 3, -1}: {Up Down Left Right NoAction}
         if action != -1 and not self.maze[self._agent_location[0], self._agent_location[1], action]:

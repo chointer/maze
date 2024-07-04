@@ -8,7 +8,7 @@ from gymnasium.core import ActType, ObsType
 from gymnasium.utils.play import MissingKeysToAction, PlayableGame, display_arr
 
 # TODO: modify after packaging
-from maze import MazeEnv
+from gym_maze.envs.maze import MazeEnv
 
 
 def play_only_keydown(
