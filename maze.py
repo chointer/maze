@@ -4,11 +4,9 @@ import pygame
 import gymnasium as gym
 from gymnasium import spaces
 
-#from maze_maker import MazeMaker
-
 
 class MazeEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}     # * NOTE. 나중에 언제 쓰이는지 체크하기
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}     # * NOTE. 나중에 언제 쓰이는지 체크하기
 
     def __init__(self, render_mode=None, height_range=[5, 10], width_range=[5, 10]):
         self.height_range = height_range
@@ -142,12 +140,13 @@ class MazeEnv(gym.Env):
     
 
     def step(self, action):
-        # action {0, 1, 2, 3}: {Up Down Left Right}
-        direction = self._action_to_direction[action]
+        # action {0, 1, 2, 3, -1}: {Up Down Left Right NoAction}
+        if action != -1 and not self.maze[self._agent_location[0], self._agent_location[1], action]:
+            direction = self._action_to_direction[action]
 
-        self._agent_location = np.clip(
-            self._agent_location + direction, (0, 0), (self.maze_height - 1, self.maze_width - 1)
-        )
+            self._agent_location = np.clip(
+                self._agent_location + direction, (0, 0), (self.maze_height - 1, self.maze_width - 1)
+            )
 
         # End condition
         terminated = np.array_equal(self._agent_location, self._target_location)
@@ -246,11 +245,13 @@ class MazeEnv(gym.Env):
             pygame.display.quit()
             pygame.quit()
 
+    def get_keys_to_action(self):
+        return {
+            "w": 0, "s": 1, "a": 2, "d": 3,
+            #pygame.K_UP: 0, pygame.K_DOWN: 1, pygame.K_LEFT: 2, pygame.K_RIGHT: 3,
+            }
+    
+env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
 
-env = MazeEnv(render_mode="human", height_range=[15, 20], width_range=[15, 20])
-
-for i in range(1):
-    env.reset(nr_ratio=0.9)
-import time
-time.sleep(7)
-env.close()
+#from gymnasium.utils.play import play
+#play(env, callback=f, noop=-1)
