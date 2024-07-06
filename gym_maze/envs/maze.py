@@ -6,16 +6,20 @@ from gymnasium import spaces
 
 
 class MazeEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}     # * NOTE. 나중에 언제 쓰이는지 체크하기
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
     def __init__(self, render_mode=None, height_range=[5, 10], width_range=[5, 10]):
         self.height_range = height_range
         self.width_range = width_range
         self.window_size = 720          # Pygame window size
+        self.manual_mode = False
 
         # Create a placeholder? for Observation Space - locations of the agent and the target
         self.observation_space = spaces.Dict(
             {
+                "maze": spaces.MultiBinary(
+                    [self.height_range[1], self.width_range[1], 4]
+                    ),
                 "agent": spaces.Box(
                     np.array([0, 0]), 
                     np.array([self.height_range[1] - 1, self.width_range[1] - 1]), 
@@ -31,8 +35,8 @@ class MazeEnv(gym.Env):
             }
         )
 
-        # Create a placehoder for Action Space - "Up", "Down", "Left", "Right"
-        self.action_space = spaces.Discrete(4)
+        # Create a placehoder for Action Space - "NoAction" (= -1), "Up", "Down", "Left", "Right"
+        self.action_space = spaces.Discrete(5, start=-1)
         self._action_to_direction = {
             0: np.array((-1, 0), dtype=int),        # Up
             1: np.array((1, 0), dtype=int),         # Down
@@ -47,13 +51,25 @@ class MazeEnv(gym.Env):
         # Create placeholders for render_mode="human"
         self.window = None      # a reference(참조) to the window that we draw to
         self.clock = None       # clock for correct framerate
+        self.font = None
 
 
     def _get_obs(self):
-        return {"maze": self.maze, "agent": self._agent_location, "target": self._target_location}
+        return {
+            "maze": self.maze_fullsize, 
+            "agent": self._agent_location, 
+            "target": self._target_location
+        }
 
+    def _get_info(self):
+        return {"move_count": self.move_count}
 
-    def reset(self, seed=None, nr_ratio=0.75):
+    def set_manual(self, value):
+        if not isinstance(value, bool):
+            raise ValueError("Input must be a boolean value")
+        self.manual_mode = value
+
+    def reset(self, seed=None, nr_ratio=0.75, options=None):
         super().reset(seed=seed)
 
         # initialize maze size       
@@ -62,20 +78,27 @@ class MazeEnv(gym.Env):
 
         # make maze
         self.maze = self.generate_maze(self.maze_height, self.maze_width, nr_ratio=nr_ratio)
-        
+        # self.maze_fullsize: observation_space["maze"]의 형태에 맞춘 maze array
+        maze_ones = np.ones((self.height_range[1], self.width_range[1], 4))
+        maze_ones[:self.maze_height, :self.maze_width] = self.maze
+        self.maze_fullsize = maze_ones
+
         # initialize object locations
         self._agent_location = self.np_random.integers([self.maze_height, self.maze_width], size=2, dtype=int)
         self._target_location = self._agent_location
         while np.array_equal(self._agent_location, self._target_location):
             self._target_location = self.np_random.integers([self.maze_height, self.maze_width], size=2, dtype=int)
 
+        self.move_count = 0
+
         # RETURNS
         observation = self._get_obs()
-        
+        info = self._get_info()
+
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation
+        return observation, info
         
 
     def generate_maze(self, height, width, nr_ratio=0.75):
@@ -176,9 +199,6 @@ class MazeEnv(gym.Env):
         return width, height, wall_c
 
 
-
-
-
     def step(self, action):
         # action {0, 1, 2, 3, -1}: {Up Down Left Right NoAction}
         if action != -1 and not self.maze[self._agent_location[0], self._agent_location[1], action]:
@@ -190,9 +210,15 @@ class MazeEnv(gym.Env):
 
         # End condition
         terminated = np.array_equal(self._agent_location, self._target_location)
+        
         reward = 1 if terminated else 0
+        
+        if self.set_manual is False or action != -1:
+            self.move_count += 1
+            reward -= 0.01        
+
         observation = self._get_obs()
-        info = None
+        info = self._get_info()
 
         if self.render_mode == "human":
             self._render_frame()
@@ -206,6 +232,10 @@ class MazeEnv(gym.Env):
         
 
     def _render_frame(self):
+        if self.font is None:
+            pygame.font.init()
+            self.font = pygame.font.SysFont("arial", 20)
+
         # Initialization in "human" mode
         if self.window is None and self.render_mode == "human":
             pygame.init()
@@ -263,10 +293,14 @@ class MazeEnv(gym.Env):
             pygame.Rect(
                 startx + self._target_location[1] * pix_square_size + pix_square_size*0.2,
                 starty + self._target_location[0] * pix_square_size + pix_square_size*0.2,
-                pix_square_size*0.6, 
-                pix_square_size*0.6
+                pix_square_size * 0.6, 
+                pix_square_size * 0.6
             )
         )
+
+        # Draw text
+        board = self.font.render(f"Moves: {self.move_count}", True, (0, 0, 0))
+        canvas.blit(board, [startx, starty - pix_square_size])
 
         if self.render_mode == "human":
             self.window.blit(canvas, canvas.get_rect())
@@ -286,10 +320,7 @@ class MazeEnv(gym.Env):
             pygame.quit()
 
     def get_keys_to_action(self):
-        return {
-            "w": 0, "s": 1, "a": 2, "d": 3,
-            #pygame.K_UP: 0, pygame.K_DOWN: 1, pygame.K_LEFT: 2, pygame.K_RIGHT: 3,
-            }
+        return {"w": 0, "s": 1, "a": 2, "d": 3}
     
 #env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
 

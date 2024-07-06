@@ -48,10 +48,10 @@ def play_discrete(
 
 
     if keys_to_action is None:
-        if hasattr(env, "get_keys_to_action"):
-            keys_to_action = env.get_keys_to_action()
-        elif hasattr(env.unwrapped, "get_keys_to_action"):
+        if hasattr(env.unwrapped, "get_keys_to_action"):
             keys_to_action = env.unwrapped.get_keys_to_action()
+        elif hasattr(env, "get_keys_to_action"):
+            keys_to_action = env.get_keys_to_action()
         else:
             assert env.spec is not None
             raise MissingKeysToAction(
@@ -106,8 +106,3 @@ def play_discrete(
         pygame.display.flip()
         clock.tick(fps)
     pygame.quit()
-
-
-# 아래 내용을 테스트 파일(튜토리얼용)만들어서 옮기기
-#env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
-#play_discrete(env, noop=-1)
