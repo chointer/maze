@@ -7,11 +7,7 @@ from gymnasium import Env
 from gymnasium.core import ActType, ObsType
 from gymnasium.utils.play import MissingKeysToAction, PlayableGame, display_arr
 
-# TODO: modify after packaging
-from gym_maze.envs.maze import MazeEnv
-
-
-def play_only_keydown(
+def play_discrete(
     env: Env,
     transpose: Optional[bool] = True,
     fps: Optional[int] = None,
@@ -112,5 +108,6 @@ def play_only_keydown(
     pygame.quit()
 
 
-env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
-play_only_keydown(env, noop=-1)
+# 아래 내용을 테스트 파일(튜토리얼용)만들어서 옮기기
+#env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
+#play_discrete(env, noop=-1)

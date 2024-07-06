@@ -291,7 +291,7 @@ class MazeEnv(gym.Env):
             #pygame.K_UP: 0, pygame.K_DOWN: 1, pygame.K_LEFT: 2, pygame.K_RIGHT: 3,
             }
     
-env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
+#env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
 
 #from gymnasium.utils.play import play
 #play(env, callback=f, noop=-1)
