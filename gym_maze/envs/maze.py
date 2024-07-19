@@ -14,6 +14,12 @@ class MazeEnv(gym.Env):
         self.window_size = 720          # Pygame window size
         self.manual_mode = False
 
+        # minimum value check
+        if self.height_range[0] <= 1:
+            raise ValueError(f"Invalid minimum height: {self.height_range[0]}. The minimum height must be greater than 1.")
+        if self.width_range[0] <= 1:
+            raise ValueError(f"Invalid minimum width: {self.width_range[0]}. The minimum weight must be greater than 1.")
+
         # Create a placeholder? for Observation Space - locations of the agent and the target
         self.observation_space = spaces.Dict(
             {
@@ -215,7 +221,7 @@ class MazeEnv(gym.Env):
         
         if self.set_manual is False or action != -1:
             self.move_count += 1
-            reward -= 0.01        
+            reward -= 0.01
 
         observation = self._get_obs()
         info = self._get_info()

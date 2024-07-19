@@ -6,16 +6,13 @@ setup(
     author="chointer",
     author_email="chointer04@gmail.com",
     description="A gymnaisum maze environment",
-    #url="https://github.com/chointer/gym-maze",
+    url="https://github.com/chointer/maze",
     packages=find_packages(),
-    classifiers=[
-        "Programming Language :: Python :: 3",
-    #    "License :: OSI Approved :: MIT License",
-    #    "Operating System :: OS Independent",
+    python_requires='>=3.11',
+    install_requires=[
+        "gymnasium>=0.29.1",
+        "matplotlib>=3.9.0",
+        "numpy>=2.0.0",
+        "pygame>=2.6.0",
     ],
-    #python_requires='>=3.11',
-    #install_requires=[
-    #    "requests",
-    #    "numpy",
-    #],
 )

@@ -1,0 +1,12 @@
+certifi==2024.6.2
+gymnasium==0.29.1
+matplotlib==3.9.0
+munkres==1.1.4
+pip-chill==1.0.3
+pygame==2.6.0
+pyqt5==5.15.9
+sip==6.7.12
+toml==0.10.2
+tomli==2.0.1
+tornado==6.4.1
+numpy==2.0.0
