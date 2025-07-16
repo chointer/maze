@@ -21,6 +21,10 @@ class MazeEnv(gym.Env):
             raise ValueError(f"Invalid minimum width: {self.width_range[0]}. The minimum weight must be greater than 1.")
 
         # Create a placeholder? for Observation Space - locations of the agent and the target
+        self.observation_space = spaces.MultiBinary(
+            [self.height_range[1], self.width_range[1], 4 + 2]      # 상하좌우 + 플레이어위치, 목표위치
+        )
+        """
         self.observation_space = spaces.Dict(
             {
                 "maze": spaces.MultiBinary(
@@ -40,7 +44,7 @@ class MazeEnv(gym.Env):
                     )
             }
         )
-
+        """
         # Create a placehoder for Action Space - "NoAction" (= -1), "Up", "Down", "Left", "Right"
         self.action_space = spaces.Discrete(5, start=-1)
         self._action_to_direction = {
@@ -61,11 +65,16 @@ class MazeEnv(gym.Env):
 
 
     def _get_obs(self):
-        return {
-            "maze": self.maze_fullsize, 
-            "agent": self._agent_location, 
-            "target": self._target_location
-        }
+        locs = np.zeros((self.height_range[1], self.width_range[1], 2), dtype=bool)
+        locs[self._agent_location[0], self._agent_location[1], 0] = True
+        locs[self._target_location[0], self._target_location[1], 1] = True
+        return np.concatenate([self.maze_fullsize, locs], axis=-1)
+
+        #return {
+        #    "maze": self.maze_fullsize, 
+        #    "agent": self._agent_location, 
+        #    "target": self._target_location
+        #}
 
     def _get_info(self):
         return {"move_count": self.move_count}
