@@ -8,12 +8,12 @@ from gymnasium import spaces
 class MazeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
-    def __init__(self, render_mode=None, height_range=[5, 10], width_range=[5, 10]):
+    def __init__(self, render_mode=None, height_range=[5, 10], width_range=[5, 10], manual_mode=False):
         self.height_range = height_range
         self.width_range = width_range
         self.window_size = 720          # Pygame window size
-        self.manual_mode = False
-
+        self.manual_mode = manual_mode
+        
         # minimum value check
         if self.height_range[0] <= 1:
             raise ValueError(f"Invalid minimum height: {self.height_range[0]}. The minimum height must be greater than 1.")
@@ -228,7 +228,7 @@ class MazeEnv(gym.Env):
         
         reward = 1 if terminated else 0
         
-        if self.set_manual is False or action != -1:
+        if self.manual_mode is False or action != -1:
             self.move_count += 1
             reward -= 0.01
 
