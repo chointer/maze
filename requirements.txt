@@ -8,5 +8,5 @@ pyqt5==5.15.9
 sip==6.7.12
 toml==0.10.2
 tomli==2.0.1
-tornado==6.4.2
+tornado==6.5
 numpy==2.0.0
