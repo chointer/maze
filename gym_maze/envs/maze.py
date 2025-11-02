@@ -1,9 +1,10 @@
+from collections import deque
 import numpy as np
 import pygame
-
 import gymnasium as gym
 from gymnasium import spaces
 
+from .rewards import RewardManager
 
 class MazeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
@@ -13,7 +14,7 @@ class MazeEnv(gym.Env):
         self.width_range = width_range
         self.window_size = 720          # Pygame window size
         self.manual_mode = manual_mode
-        
+
         # minimum value check
         if self.height_range[0] <= 1:
             raise ValueError(f"Invalid minimum height: {self.height_range[0]}. The minimum height must be greater than 1.")
@@ -24,7 +25,7 @@ class MazeEnv(gym.Env):
         self.observation_space = spaces.MultiBinary(
             [self.height_range[1], self.width_range[1], 4 + 2]      # 상하좌우 + 플레이어위치, 목표위치
         )
-        """
+        """ stable_baseline3에서 Dict 형태를 지원하지 않고, 배열이 아니면 인공신경망에 입력하기도 불편해서 MultiBinary로 변경.
         self.observation_space = spaces.Dict(
             {
                 "maze": spaces.MultiBinary(
@@ -52,7 +53,13 @@ class MazeEnv(gym.Env):
             1: np.array((1, 0), dtype=int),         # Down
             2: np.array((0, -1), dtype=int),        # Left
             3: np.array((0, 1), dtype=int),         # Right
-            }
+        }
+        
+        # Reward
+        #self.distance_map = None
+        #self.manhattan_map = None
+        self.reward = 0
+        self.reward_manager = RewardManager()
 
         # Rendering settings
         assert render_mode is None or render_mode in self.metadata["render_modes"]
@@ -77,7 +84,11 @@ class MazeEnv(gym.Env):
         #}
 
     def _get_info(self):
-        return {"move_count": self.move_count}
+        return {
+            "move_count": self.move_count, 
+            "agent_location": self._agent_location,
+            "target_location": self._target_location,
+        }  #, "distance_map": self.distance_map, "manhattan_map": self.manhattan_map}
 
     def set_manual(self, value):
         if not isinstance(value, bool):
@@ -109,12 +120,55 @@ class MazeEnv(gym.Env):
         # RETURNS
         observation = self._get_obs()
         info = self._get_info()
+        
+        # REWARD INPUTS
+        self.distance_map = self.compute_distance_map(observation)
+        self.manhattan_map = self.compute_manhattan_map(observation)
+        self.reward_manager.reward_inputs['distance_map'] = self.distance_map
+        self.reward_manager.reward_inputs['manhattan_map'] = self.manhattan_map
+        self.reward_manager.reward_inputs['agent_location'] = self._agent_location
 
         if self.render_mode == "human":
             self._render_frame()
 
         return observation, info
+
+
+    def step(self, action):
+        # action {0, 1, 2, 3, -1}: {Up Down Left Right NoAction}
+        if action != -1 and not self.maze[self._agent_location[0], self._agent_location[1], action]:
+            direction = self._action_to_direction[action]
+
+            self._agent_location = np.clip(
+                self._agent_location + direction, (0, 0), (self.maze_height - 1, self.maze_width - 1)
+            )
+
+        # End condition
+        terminated = np.array_equal(self._agent_location, self._target_location)
         
+        self.reward_manager.reward_inputs['terminated'] = terminated
+        self.reward_manager.reward_inputs['action'] = action
+        self.reward_manager.reward_inputs['manual_mode'] = self.manual_mode
+        self.reward_manager.reward_inputs['agent_location_before'] = self.reward_manager.reward_inputs['agent_location'].copy()     # 혹시 모를 데이터 공유 오류 방지
+        self.reward_manager.reward_inputs['agent_location'] = self._agent_location
+        reward, reward_dict = self.reward_manager()
+        # reward = 1 if terminated else 0
+        
+        if self.manual_mode is False or action != -1:
+            self.move_count += 1
+            self.reward = reward
+        #     reward -= 0.01
+
+        observation = self._get_obs()
+        info = self._get_info()
+        info["manual_mode"] = self.manual_mode
+        info["rewards"] = reward_dict
+
+        if self.render_mode == "human":
+            self._render_frame()
+        
+        return observation, reward, terminated, False, info
+
 
     def generate_maze(self, height, width, nr_ratio=0.75):
         wall_c = np.ones((height, width, 4), dtype=bool)
@@ -214,33 +268,6 @@ class MazeEnv(gym.Env):
         return width, height, wall_c
 
 
-    def step(self, action):
-        # action {0, 1, 2, 3, -1}: {Up Down Left Right NoAction}
-        if action != -1 and not self.maze[self._agent_location[0], self._agent_location[1], action]:
-            direction = self._action_to_direction[action]
-
-            self._agent_location = np.clip(
-                self._agent_location + direction, (0, 0), (self.maze_height - 1, self.maze_width - 1)
-            )
-
-        # End condition
-        terminated = np.array_equal(self._agent_location, self._target_location)
-        
-        reward = 1 if terminated else 0
-        
-        if self.manual_mode is False or action != -1:
-            self.move_count += 1
-            reward -= 0.01
-
-        observation = self._get_obs()
-        info = self._get_info()
-
-        if self.render_mode == "human":
-            self._render_frame()
-        
-        return observation, reward, terminated, False, info
-
-
     def render(self):
         if self.render_mode == "rgb_array":
             return self._render_frame()
@@ -314,7 +341,9 @@ class MazeEnv(gym.Env):
         )
 
         # Draw text
-        board = self.font.render(f"Moves: {self.move_count}", True, (0, 0, 0))
+        board = self.font.render(f"Mvs: {self.move_count}", True, (0, 0, 0))
+        canvas.blit(board, [startx, starty - 1.8 * pix_square_size])
+        board = self.font.render(f"Rwd: {round(self.reward, 3)}", True, (0, 0, 0))
         canvas.blit(board, [startx, starty - pix_square_size])
 
         if self.render_mode == "human":
@@ -337,6 +366,53 @@ class MazeEnv(gym.Env):
     def get_keys_to_action(self):
         return {"w": 0, "s": 1, "a": 2, "d": 3}
     
+    def compute_distance_map(self, obs=None):
+        # BFS
+        if obs is None:
+            obs = self._get_obs()
+        height, width, _ = obs.shape
+        wall_c = obs[:, :, :4].astype(int)
+        dists = np.ones((height, width), dtype=int) * -1
+
+        target_loc_y, target_loc_x = np.where(obs[:, :, -1])    
+        q = deque()
+        q.append((target_loc_y[0], target_loc_x[0], 0))     # y, x, distance
+
+        MOVES = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        # obs[:, :, idx]의 0~3 idx는 순서대로 Up Down Left Right를 의미한다.
+
+        while q:
+            y, x, d = q.popleft()
+            if dists[y, x] != -1:       # 첫 방문이 아니면 continue
+                continue
+            
+            # 알고리즘 오류 체크
+            if dists[y, x] > d:
+                print(f'y={y}, x={x}, d={d}')
+                print(dists)
+                assert False
+
+            # 거리 기입
+            dists[y, x] = d
+
+            # 다음 방문지 선택
+            for idx_direction in range(4):  # up down left right
+                y_next = y + MOVES[idx_direction][0]
+                x_next = x + MOVES[idx_direction][1]
+                if wall_c[y, x, idx_direction] == 0 and dists[y_next, x_next] == -1:       # No wall(movable) & Not Visited
+                    q.append((y_next, x_next, d + 1))
+
+        return dists
+
+    def compute_manhattan_map(self, obs=None):
+        h_max, w_max, _ = obs.shape
+        ws = np.arange(w_max)
+        hs = np.arange(h_max)
+        ww, hh = np.meshgrid(ws, hs)
+        target_loc_y, target_loc_x = np.where(obs[:, :, -1])
+        manhattan = np.abs(ww - target_loc_x) + np.abs(hh - target_loc_y)
+        return manhattan
+
 #env = MazeEnv(render_mode="rgb_array", height_range=[15, 20], width_range=[15, 20])
 
 #from gymnasium.utils.play import play
