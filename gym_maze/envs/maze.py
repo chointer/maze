@@ -22,9 +22,15 @@ class MazeEnv(gym.Env):
             raise ValueError(f"Invalid minimum width: {self.width_range[0]}. The minimum weight must be greater than 1.")
 
         # Create a placeholder? for Observation Space - locations of the agent and the target
-        self.observation_space = spaces.MultiBinary(
-            [self.height_range[1], self.width_range[1], 4 + 2]      # 상하좌우 + 플레이어위치, 목표위치
+        self.observation_space = spaces.Box(
+            low=0, 
+            high=1, 
+            shape=(self.height_range[1], self.width_range[1], 4 + 2),
+            dtype=np.float32
         )
+        # self.observation_space = spaces.MultiBinary(
+        #     [self.height_range[1], self.width_range[1], 4 + 2]      # 상하좌우 + 플레이어위치, 목표위치
+        # )
         """ stable_baseline3에서 Dict 형태를 지원하지 않고, 배열이 아니면 인공신경망에 입력하기도 불편해서 MultiBinary로 변경.
         self.observation_space = spaces.Dict(
             {
@@ -72,10 +78,10 @@ class MazeEnv(gym.Env):
 
 
     def _get_obs(self):
-        locs = np.zeros((self.height_range[1], self.width_range[1], 2), dtype=bool)
-        locs[self._agent_location[0], self._agent_location[1], 0] = True
-        locs[self._target_location[0], self._target_location[1], 1] = True
-        return np.concatenate([self.maze_fullsize, locs], axis=-1)
+        locs = np.zeros((self.height_range[1], self.width_range[1], 2), dtype=np.float32)
+        locs[self._agent_location[0], self._agent_location[1], 0] = 1.
+        locs[self._target_location[0], self._target_location[1], 1] = 1.
+        return np.concatenate([self.maze_fullsize, locs], axis=-1).astype(np.float32)
 
         #return {
         #    "maze": self.maze_fullsize, 
