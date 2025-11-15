@@ -52,8 +52,8 @@ class MazeEnv(gym.Env):
             }
         )
         """
-        # Create a placehoder for Action Space - "NoAction" (= -1), "Up", "Down", "Left", "Right"
-        self.action_space = spaces.Discrete(5, start=-1)
+        # Create a placehoder for Action Space - "Up", "Down", "Left", "Right", "NoAction" (= 4)
+        self.action_space = spaces.Discrete(5)
         self._action_to_direction = {
             0: np.array((-1, 0), dtype=int),        # Up
             1: np.array((1, 0), dtype=int),         # Down
@@ -141,8 +141,8 @@ class MazeEnv(gym.Env):
 
 
     def step(self, action):
-        # action {0, 1, 2, 3, -1}: {Up Down Left Right NoAction}
-        if action != -1 and not self.maze[self._agent_location[0], self._agent_location[1], action]:
+        # action {0, 1, 2, 3, 4}: {Up Down Left Right NoAction}
+        if action != 4 and not self.maze[self._agent_location[0], self._agent_location[1], action]:
             direction = self._action_to_direction[action]
 
             self._agent_location = np.clip(
@@ -160,7 +160,7 @@ class MazeEnv(gym.Env):
         reward, reward_dict = self.reward_manager()
         # reward = 1 if terminated else 0
         
-        if self.manual_mode is False or action != -1:
+        if self.manual_mode is False or action != 4:
             self.move_count += 1
             self.reward = reward
         #     reward -= 0.01
