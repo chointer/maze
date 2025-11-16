@@ -326,14 +326,6 @@ class MazeEnv(gym.Env):
                     )
 
         # Draw objects
-        # agent
-        pygame.draw.circle(
-            canvas,
-            (0, 80, 255),
-            (startx + (self._agent_location[1] + 0.5) * pix_square_size, starty + (self._agent_location[0] + 0.5) * pix_square_size),
-            pix_square_size / 4,
-        )
-
         # target
         pygame.draw.rect(
             canvas,
@@ -344,6 +336,13 @@ class MazeEnv(gym.Env):
                 pix_square_size * 0.6, 
                 pix_square_size * 0.6
             )
+        )
+        # agent
+        pygame.draw.circle(
+            canvas,
+            (0, 80, 255),
+            (startx + (self._agent_location[1] + 0.5) * pix_square_size, starty + (self._agent_location[0] + 0.5) * pix_square_size),
+            pix_square_size / 4,
         )
 
         # Draw text
@@ -364,6 +363,14 @@ class MazeEnv(gym.Env):
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
     
+    def get_draw_infos(self):
+        pix_square_size = (self.window_size / max(self.height_range[1], self.width_range[1], 22))
+        return {
+            'pix_square_size': pix_square_size,
+            'startx': float(self.window_size - self.maze_width * pix_square_size)/2,
+            'starty': float(self.window_size - self.maze_height * pix_square_size)/2
+        }
+
     def close(self):
         if self.window is not None:
             pygame.display.quit()
